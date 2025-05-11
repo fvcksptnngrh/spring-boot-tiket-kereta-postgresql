@@ -18,11 +18,11 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
 
     // Method ini akan dipanggil setiap kali user yang tidak terotentikasi
     // mencoba mengakses resource yang memerlukan otentikasi
-    @Override
+        @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
-                         AuthenticationException authException) throws IOException, ServletException {
-        logger.error("Unauthorized error: {}", authException.getMessage());
-        // Mengirim response error 401 Unauthorized
+                        AuthenticationException authException) throws IOException, ServletException {
+        logger.error("Unauthorized error: {}", authException.getMessage()); // Ini sudah ada
+        logger.error("AuthException type: ", authException); // Tambahkan ini untuk melihat detail exception
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error: Unauthorized");
     }
 }

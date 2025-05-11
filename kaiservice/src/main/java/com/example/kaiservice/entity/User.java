@@ -8,13 +8,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "users", uniqueConstraints = { // Tambahkan unique constraints
+@Table(name = "users", uniqueConstraints = {
     @UniqueConstraint(columnNames = "username"),
     @UniqueConstraint(columnNames = "email")
 })
-@Data // Lombok: generate getter, setter, toString, equals, hashCode
-@NoArgsConstructor // Lombok: generate constructor tanpa argumen
-@AllArgsConstructor // Lombok: generate constructor dengan semua argumen
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
 
     @Id
@@ -30,12 +30,15 @@ public class User {
     @Column(nullable = false)
     private String password; // Password akan disimpan dalam bentuk hash
 
-    // Nanti bisa ditambahkan relasi ke role jika diperlukan
-    // @ManyToMany(fetch = FetchType.LAZY)
-    // @JoinTable(name = "user_roles", /* ... */)
-    // private Set<Role> roles = new HashSet<>();
+    // --- BAGIAN YANG DIPERBAIKI DAN DIAKTIFKAN ---
+    @ManyToMany(fetch = FetchType.EAGER) // Menggunakan EAGER agar peran langsung dimuat
+    @JoinTable(name = "user_roles", // Nama tabel penghubung yang sudah Anda buat
+               joinColumns = @JoinColumn(name = "user_id"), // Kolom di user_roles yang merujuk ke tabel users (id pengguna)
+               inverseJoinColumns = @JoinColumn(name = "role_id")) // Kolom di user_roles yang merujuk ke tabel roles (id peran)
+    private Set<Role> roles = new HashSet<>(); // Pastikan diinisialisasi
+    // --- SELESAI BAGIAN YANG DIPERBAIKI ---
 
-    // Relasi ke UserProfile (jika ada)
+    // Relasi ke UserProfile (jika ada) - ini sudah benar jika Anda memang menggunakannya
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)
     private UserProfile userProfile;
 }

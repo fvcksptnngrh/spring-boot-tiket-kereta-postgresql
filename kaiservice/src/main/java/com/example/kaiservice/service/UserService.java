@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -31,6 +32,11 @@ public class UserService {
     @Autowired
     private UserProfileRepository userProfileRepository;
 
+    @Transactional(readOnly = true) // Operasi baca
+    public List<User> findAllUsers() {
+        logger.info("Fetching all users from database.");
+        return userRepository.findAll(); // Menggunakan method findAll() dari JpaRepository
+    }
     // Helper method untuk mendapatkan User yang sedang login
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -48,15 +48,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                     logger.info(">>> AuthTokenFilter: Username extracted from JWT: {}", username);
 
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    logger.info(">>> AuthTokenFilter: UserDetails loaded for username: {}", username);
+                    // Log authorities dari userDetails
+                    logger.info(">>> AuthTokenFilter: User authorities for " + username + ": " + userDetails.getAuthorities());
 
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()); // Pastikan authorities disertakan
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    // === LOG JIKA KONTEKS SECURITY DISET ===
-                    logger.info(">>> AuthTokenFilter: Authentication set in SecurityContext for user: {}", username);
+                    logger.info(">>> AuthTokenFilter: Authentication object created with authorities: " + authentication.getAuthorities());
                 } else {
                     // === LOG JIKA VALIDASI GAGAL ===
                     logger.warn(">>> AuthTokenFilter: JWT validation returned false.");
