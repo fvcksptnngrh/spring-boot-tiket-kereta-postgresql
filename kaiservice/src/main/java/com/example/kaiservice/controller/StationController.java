@@ -3,40 +3,56 @@ package com.example.kaiservice.controller;
 import com.example.kaiservice.dto.StationDto;
 import com.example.kaiservice.service.StationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/stations") // Base path untuk endpoint stasiun
+@RequestMapping("/api/stations") // Base path untuk stasiun
 public class StationController {
 
     @Autowired
     private StationService stationService;
 
-    // Endpoint untuk mendapatkan semua stasiun
-    @GetMapping
-    public ResponseEntity<List<StationDto>> getAllStations() {
-        List<StationDto> stations = stationService.getAllStations();
-        if (stations.isEmpty()) {
-            // Jika tidak ada stasiun, kembalikan response Not Found atau OK dengan list kosong
-            return ResponseEntity.ok(stations); // Atau ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(stations); // Kembalikan daftar stasiun dengan status OK (200)
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa membuat stasiun
+    public ResponseEntity<StationDto> createStation(@RequestBody StationDto stationDto) {
+        // Tambahkan validasi untuk stationDto jika pakai @Valid di DTO
+        StationDto createdStation = stationService.createStation(stationDto);
+        return new ResponseEntity<>(createdStation, HttpStatus.CREATED);
     }
 
-    // Opsional: Endpoint untuk menambahkan stasiun baru (jika diperlukan)
-    // @PostMapping
-    // public ResponseEntity<StationDto> addStation(@RequestBody StationDto stationDto) {
-    //     try {
-    //          StationDto newStation = stationService.addStation(stationDto);
-    //          return ResponseEntity.status(HttpStatus.CREATED).body(newStation); // Status CREATED (201)
-    //     } catch(Exception e) {
-    //          // Handle error, misal stasiun sudah ada
-    //          return ResponseEntity.badRequest().build();
-    //     }
-    // }
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa melihat semua stasiun
+    // Jika semua user boleh lihat, ganti jadi @PreAuthorize("isAuthenticated()") atau hapus jika publik
+    public ResponseEntity<List<StationDto>> getAllStations() {
+        List<StationDto> stations = stationService.getAllStations();
+        return ResponseEntity.ok(stations);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa melihat stasiun by ID
+    public ResponseEntity<StationDto> getStationById(@PathVariable Long id) {
+        StationDto station = stationService.getStationById(id);
+        return ResponseEntity.ok(station);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa update stasiun
+    public ResponseEntity<StationDto> updateStation(@PathVariable Long id, @RequestBody StationDto stationDto) {
+        StationDto updatedStation = stationService.updateStation(id, stationDto);
+        return ResponseEntity.ok(updatedStation);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa delete stasiun
+    public ResponseEntity<Void> deleteStation(@PathVariable Long id) {
+        stationService.deleteStation(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    
 }

@@ -1,16 +1,34 @@
 package com.example.kaiservice.service;
 
-import com.example.kaiservice.dto.*; // Import semua DTO
-import com.example.kaiservice.entity.*; // Import semua Entity
+// Import DTOs secara spesifik
+import com.example.kaiservice.dto.BookingRequest;
+import com.example.kaiservice.dto.ScheduleResponseDto; // Pastikan ini adalah nama DTO respons jadwal Anda
+import com.example.kaiservice.dto.StationDto;
+import com.example.kaiservice.dto.TicketDto;
+
+// Import Entities secara spesifik
+import com.example.kaiservice.entity.Schedule;
+import com.example.kaiservice.entity.Station;
+import com.example.kaiservice.entity.Ticket;
+import com.example.kaiservice.entity.User;
+import com.example.kaiservice.entity.TicketStatus; // Pastikan Enum ini ada di package entity
+
+// Import Repositories
 import com.example.kaiservice.repository.ScheduleRepository;
 import com.example.kaiservice.repository.TicketRepository;
 import com.example.kaiservice.repository.UserRepository;
+
+// Import Logging
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+// Import Spring & Java lainnya
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // Penting untuk booking!
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +37,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class TicketService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TicketService.class);
 
     @Autowired
     private TicketRepository ticketRepository;
@@ -31,34 +51,45 @@ public class TicketService {
 
     // --- Helper Methods ---
 
-    // Helper method untuk mendapatkan User yang sedang login (sama seperti di UserService)
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-             throw new RuntimeException("No authenticated user found");
+            logger.warn("Attempted to get current user but no authentication found or user is anonymous.");
+            throw new RuntimeException("No authenticated user found. Please login.");
         }
         String username = authentication.getName();
+        logger.debug("Fetching current user by username: {}", username);
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
+                .orElseThrow(() -> {
+                    logger.error("User Not Found in DB after successful authentication: {}", username);
+                    return new UsernameNotFoundException("User Not Found with username: " + username);
+                });
     }
 
-    // Helper method konversi Station ke StationDto (duplikasi dari ScheduleService untuk sementara)
-     private StationDto convertStationToDto(Station station) {
-        if (station == null) return null;
-        StationDto dto = new StationDto();
-        dto.setId(station.getId());
-        dto.setName(station.getName());
-        dto.setCity(station.getCity());
-        return dto;
-    }
+    // Method ini bisa Anda hapus jika tidak terpakai di kelas ini, untuk mengurangi warning
+    // private StationDto convertStationToDto(Station station) {
+    //     if (station == null) return null;
+    //     StationDto dto = new StationDto();
+    //     dto.setId(station.getId());
+    //     dto.setName(station.getName());
+    //     dto.setCity(station.getCity());
+    //     return dto;
+    // }
 
-    // Helper method konversi Schedule ke ScheduleDto (duplikasi dari ScheduleService untuk sementara)
-    private ScheduleDto convertScheduleToDto(Schedule schedule) {
+    private ScheduleResponseDto convertScheduleToDto(Schedule schedule) {
         if (schedule == null) return null;
-        ScheduleDto dto = new ScheduleDto();
+        ScheduleResponseDto dto = new ScheduleResponseDto();
         dto.setId(schedule.getId());
-        dto.setOriginStation(convertStationToDto(schedule.getOriginStation()));
-        dto.setDestinationStation(convertStationToDto(schedule.getDestinationStation()));
+
+        if (schedule.getDepartureStation() != null) {
+            dto.setDepartureStationName(schedule.getDepartureStation().getName());
+            dto.setDepartureStationCity(schedule.getDepartureStation().getCity());
+        }
+        if (schedule.getArrivalStation() != null) {
+            dto.setArrivalStationName(schedule.getArrivalStation().getName());
+            dto.setArrivalStationCity(schedule.getArrivalStation().getCity());
+        }
+
         dto.setDepartureTime(schedule.getDepartureTime());
         dto.setArrivalTime(schedule.getArrivalTime());
         dto.setTrainName(schedule.getTrainName());
@@ -68,81 +99,101 @@ public class TicketService {
     }
 
 
-    // Helper method konversi Ticket Entity ke TicketDto
     private TicketDto convertTicketToDto(Ticket ticket) {
         TicketDto dto = new TicketDto();
         dto.setId(ticket.getId());
-        dto.setUserId(ticket.getUser().getId()); // Sertakan ID user
-        dto.setSchedule(convertScheduleToDto(ticket.getSchedule())); // Konversi jadwal terkait
+        if (ticket.getUser() != null) {
+            dto.setUserId(ticket.getUser().getId());
+        }
+        if (ticket.getSchedule() != null) {
+            dto.setSchedule(convertScheduleToDto(ticket.getSchedule()));
+        }
         dto.setBookingTime(ticket.getBookingTime());
         dto.setSeatNumber(ticket.getSeatNumber());
-        dto.setStatus(ticket.getStatus().name()); // Ambil nama enum sebagai String
+        if (ticket.getStatus() != null) {
+            dto.setStatus(ticket.getStatus().name());
+        }
         return dto;
     }
 
     // --- Service Methods ---
 
-    // Memesan Tiket
-    @Transactional // Pastikan semua operasi (cek kursi, save ticket, update schedule) dalam 1 transaksi
+    @Transactional
     public TicketDto bookTicket(BookingRequest bookingRequest) {
-        User currentUser = getCurrentUser(); // 1. Dapatkan user
+        User currentUser = getCurrentUser();
+        logger.info("User {} attempting to book ticket for schedule ID: {}", currentUser.getUsername(), bookingRequest.getScheduleId());
 
-        // 2. Cari Jadwal
         Schedule schedule = scheduleRepository.findById(bookingRequest.getScheduleId())
-                .orElseThrow(() -> new RuntimeException("Schedule not found with ID: " + bookingRequest.getScheduleId())); // Ganti dgn exception spesifik
+                .orElseThrow(() -> {
+                    logger.warn("Schedule not found with ID: {}", bookingRequest.getScheduleId());
+                    return new RuntimeException("Schedule not found with ID: " + bookingRequest.getScheduleId());
+                });
 
-        // 3. Cek Ketersediaan Kursi
-        if (schedule.getAvailableSeats() <= 0) {
-            throw new RuntimeException("No seats available for this schedule!"); // Ganti dgn exception spesifik
+        if (schedule.getAvailableSeats() == null || schedule.getAvailableSeats() <= 0) {
+            logger.warn("No seats available for schedule ID: {}. Available: {}", schedule.getId(), schedule.getAvailableSeats());
+            throw new RuntimeException("No seats available for this schedule!");
         }
 
-        // --- Logika Booking ---
-        // 4. Buat entitas Tiket baru
         Ticket newTicket = new Ticket();
         newTicket.setUser(currentUser);
         newTicket.setSchedule(schedule);
         newTicket.setBookingTime(LocalDateTime.now());
         newTicket.setStatus(TicketStatus.BOOKED);
-        newTicket.setSeatNumber(bookingRequest.getSeatNumber()); // Ambil dari request (bisa null)
+        newTicket.setSeatNumber(bookingRequest.getSeatNumber());
 
-        // 5. Kurangi jumlah kursi tersedia di jadwal
         schedule.setAvailableSeats(schedule.getAvailableSeats() - 1);
 
-        // 6. Simpan perubahan (karena @Transactional, keduanya harus berhasil)
-        scheduleRepository.save(schedule); // Update jadwal
-        Ticket savedTicket = ticketRepository.save(newTicket); // Simpan tiket baru
+        scheduleRepository.save(schedule);
+        Ticket savedTicket = ticketRepository.save(newTicket);
+        logger.info("Ticket booked successfully with ID: {} for user: {} and schedule: {}", savedTicket.getId(), currentUser.getUsername(), schedule.getId());
 
-        // 7. Konversi ke DTO dan kembalikan
         return convertTicketToDto(savedTicket);
     }
 
-    // Mendapatkan semua tiket milik user yang sedang login
     @Transactional(readOnly = true)
     public List<TicketDto> getTicketsForCurrentUser() {
         User currentUser = getCurrentUser();
-        List<Ticket> tickets = ticketRepository.findByUserId(currentUser.getId());
+        logger.info("Fetching tickets for current user: {}", currentUser.getUsername());
+        List<Ticket> tickets = ticketRepository.findByUser(currentUser); // Memanggil dari instance
         return tickets.stream()
                       .map(this::convertTicketToDto)
                       .collect(Collectors.toList());
     }
 
-    // Mendapatkan detail tiket spesifik milik user yang sedang login
     @Transactional(readOnly = true)
     public Optional<TicketDto> getTicketByIdForCurrentUser(Long ticketId) {
         User currentUser = getCurrentUser();
-        Optional<Ticket> ticketOpt = ticketRepository.findById(ticketId);
+        logger.info("Fetching ticket ID: {} for current user: {}", ticketId, currentUser.getUsername());
 
-        if (ticketOpt.isPresent()) {
-            Ticket ticket = ticketOpt.get();
-            // Verifikasi kepemilikan tiket
-            if (ticket.getUser().getId().equals(currentUser.getId())) {
-                return Optional.of(convertTicketToDto(ticket)); // Kembalikan DTO jika milik user
-            } else {
-                // Jika tiket ada tapi bukan milik user, bisa throw Forbidden atau return empty
-                return Optional.empty(); // Anggap saja tidak ditemukan
-            }
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // 1. Hapus baris: List<Ticket> findByUser(User user);
+        // 2. Pastikan TicketRepository memiliki method findByIdAndUser(Long id, User user)
+        Optional<Ticket> ticketOpt = ticketRepository.findByIdAndUser(ticketId, currentUser);
+        // --------------------------------
+
+        if(ticketOpt.isPresent()){
+            // Karena findByIdAndUser sudah memastikan tiket milik user, tidak perlu cek ulang kepemilikan di sini.
+            logger.info("Ticket ID: {} found and belongs to user: {}. Returning DTO.", ticketId, currentUser.getUsername());
+            return ticketOpt.map(this::convertTicketToDto);
         } else {
-            return Optional.empty(); // Tiket tidak ditemukan
+            logger.warn("Ticket ID: {} not found or does not belong to user: {}", ticketId, currentUser.getUsername());
+            return Optional.empty();
         }
+    }
+
+    // --- Metode untuk ADMIN (Contoh Tambahan) ---
+    @Transactional(readOnly = true)
+    public List<TicketDto> getAllTicketsForAdmin() {
+        logger.info("Admin fetching all tickets.");
+        List<Ticket> tickets = ticketRepository.findAll();
+        return tickets.stream()
+                .map(this::convertTicketToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<TicketDto> getAnyTicketByIdForAdmin(Long ticketId) {
+        logger.info("Admin fetching ticket by ID: {}", ticketId);
+        return ticketRepository.findById(ticketId).map(this::convertTicketToDto);
     }
 }

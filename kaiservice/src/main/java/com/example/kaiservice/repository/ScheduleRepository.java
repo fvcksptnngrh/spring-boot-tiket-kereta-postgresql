@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
     // Contoh query custom untuk mencari jadwal berdasarkan asal, tujuan, dan tanggal
-    List<Schedule> findByOriginStationIdAndDestinationStationIdAndDepartureTimeBetween(
-        Long originStationId,
-        Long destinationStationId,
-        LocalDateTime startDate, // Awal hari
-        LocalDateTime endDate    // Akhir hari
+    List<Schedule> findByDepartureStationIdAndArrivalStationIdAndDepartureTimeBetween(
+            Long departureStationId,
+            Long arrivalStationId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
     );
 
      List<Schedule> findByDepartureTimeAfter(LocalDateTime time); // Cari jadwal setelah waktu tertentu

@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import java.time.LocalDateTime; // Gunakan tipe data waktu modern
-import java.math.BigDecimal; // Gunakan BigDecimal untuk harga
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "schedules")
@@ -18,13 +18,13 @@ public class Schedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne // Relasi ke Station (Asal)
-    @JoinColumn(name = "origin_station_id", nullable = false)
-    private Station originStation;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "departure_station_id", nullable = false) // INI SUDAH SESUAI PILIHAN 1
+    private Station departureStation;
 
-    @ManyToOne // Relasi ke Station (Tujuan)
-    @JoinColumn(name = "destination_station_id", nullable = false)
-    private Station destinationStation;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "arrival_station_id", nullable = false) // INI SUDAH SESUAI PILIHAN 1
+    private Station arrivalStation;
 
     @Column(nullable = false)
     private LocalDateTime departureTime;
@@ -35,8 +35,8 @@ public class Schedule {
     @Column(nullable = false)
     private String trainName;
 
-    @Column(nullable = false, precision = 10, scale = 2) // Presisi untuk uang
-    private BigDecimal price;
+    @Column(nullable = false)
+    private Double price;
 
-    private int availableSeats; // Jumlah kursi tersedia (bisa di-update saat booking)
-}
+    private Integer availableSeats;
+}   

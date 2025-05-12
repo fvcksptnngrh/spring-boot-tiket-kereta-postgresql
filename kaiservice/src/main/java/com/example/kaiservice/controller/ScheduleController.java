@@ -1,54 +1,66 @@
 package com.example.kaiservice.controller;
 
-import com.example.kaiservice.dto.ScheduleDto;
-import com.example.kaiservice.dto.SeatDto;
+import com.example.kaiservice.dto.ScheduleRequestDto;
+import com.example.kaiservice.dto.ScheduleResponseDto;
 import com.example.kaiservice.service.ScheduleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat; // Import DateTimeFormat
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*; // Import anotasi web
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid; // PENTING: Import untuk @Valid
 
-import java.time.LocalDate; // Import LocalDate
 import java.util.List;
-import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/schedules") // Base path untuk endpoint jadwal
+@RequestMapping("/api/schedules")
 public class ScheduleController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ScheduleController.class);
 
     @Autowired
     private ScheduleService scheduleService;
 
-    // Endpoint untuk mendapatkan jadwal (semua atau terfilter)
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ScheduleResponseDto> createSchedule(@Valid @RequestBody ScheduleRequestDto scheduleRequestDto) { // Tambahkan @Valid
+        logger.info("Received request to create schedule with train name: {}", scheduleRequestDto.getTrainName());
+        ScheduleResponseDto createdSchedule = scheduleService.createSchedule(scheduleRequestDto);
+        return new ResponseEntity<>(createdSchedule, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ScheduleResponseDto> updateSchedule(@PathVariable Long id, @Valid @RequestBody ScheduleRequestDto scheduleRequestDto) { // Tambahkan @Valid
+        logger.info("Received request to update schedule ID: {}", id);
+        ScheduleResponseDto updatedSchedule = scheduleService.updateSchedule(id, scheduleRequestDto);
+        return ResponseEntity.ok(updatedSchedule);
+    }
+
+    // Method GET dan DELETE lainnya tetap sama (tidak ada body untuk divalidasi)
     @GetMapping
-    public ResponseEntity<List<ScheduleDto>> findSchedules(
-            @RequestParam(required = false) Long originStationId,
-            @RequestParam(required = false) Long destinationStationId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate) {
-
-        List<ScheduleDto> schedules = scheduleService.findSchedules(originStationId, destinationStationId, departureDate);
-        return ResponseEntity.ok(schedules); // Selalu kembalikan OK, list bisa kosong
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ScheduleResponseDto>> getAllSchedules() {
+        logger.info("Received request to get all schedules");
+        List<ScheduleResponseDto> schedules = scheduleService.getAllSchedules();
+        return ResponseEntity.ok(schedules);
     }
 
-    // Endpoint untuk mendapatkan detail jadwal spesifik
-    @GetMapping("/{scheduleId}")
-    public ResponseEntity<ScheduleDto> getScheduleById(@PathVariable Long scheduleId) {
-        Optional<ScheduleDto> scheduleDtoOpt = scheduleService.getScheduleById(scheduleId);
-
-        // Jika ditemukan, kembalikan OK (200) dengan datanya
-        // Jika tidak, kembalikan Not Found (404)
-        return scheduleDtoOpt.map(ResponseEntity::ok) // Jika ada, bungkus dengan ResponseEntity.ok()
-                             .orElseGet(() -> ResponseEntity.notFound().build()); // Jika kosong, buat ResponseEntity 404
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ScheduleResponseDto> getScheduleById(@PathVariable Long id) {
+        logger.info("Received request to get schedule by ID: {}", id);
+        ScheduleResponseDto schedule = scheduleService.getScheduleById(id);
+        return ResponseEntity.ok(schedule);
     }
 
-    // Endpoint untuk mendapatkan ketersediaan kursi jadwal spesifik
-    @GetMapping("/{scheduleId}/seats")
-    public ResponseEntity<List<SeatDto>> getAvailableSeats(@PathVariable Long scheduleId) {
-         Optional<List<SeatDto>> seatsOpt = scheduleService.getAvailableSeats(scheduleId);
-
-         // Jika jadwal ditemukan dan ada data kursi, kembalikan OK (200)
-         // Jika jadwal tidak ditemukan, kembalikan Not Found (404)
-         return seatsOpt.map(ResponseEntity::ok)
-                        .orElseGet(() -> ResponseEntity.notFound().build());
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteSchedule(@PathVariable Long id) {
+        logger.info("Received request to delete schedule ID: {}", id);
+        scheduleService.deleteSchedule(id);
+        return ResponseEntity.noContent().build();
     }
 }
