@@ -42,7 +42,7 @@ public class UserController {
     // --- SELESAI PENAMBAHAN METHOD ---
 
     @GetMapping("/profile")
-    // @PreAuthorize("isAuthenticated()") // Anda bisa aktifkan ini jika perlu: .hasAnyRole('USER', 'ADMIN') atau isAuthenticated()
+    @PreAuthorize("isAuthenticated()") // Anda bisa aktifkan ini jika perlu: .hasAnyRole('USER', 'ADMIN') atau isAuthenticated()
     public ResponseEntity<UserProfileDto> getUserProfile() {
         try {
             UserProfileDto profileDto = userService.getUserProfile();
@@ -54,7 +54,7 @@ public class UserController {
     }
 
     @PostMapping("/profile")
-    // @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateUserProfile(@RequestBody UserProfileDto profileUpdateRequest) {
         logger.info(">>> UserController: updateUserProfile method entered.");
         try {

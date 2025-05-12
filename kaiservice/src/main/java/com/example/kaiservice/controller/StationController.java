@@ -26,7 +26,7 @@ public class StationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')") // Hanya ADMIN yang bisa melihat semua stasiun
+    @PreAuthorize("permitAll()") // Hanya ADMIN yang bisa melihat semua stasiun
     // Jika semua user boleh lihat, ganti jadi @PreAuthorize("isAuthenticated()") atau hapus jika publik
     public ResponseEntity<List<StationDto>> getAllStations() {
         List<StationDto> stations = stationService.getAllStations();
