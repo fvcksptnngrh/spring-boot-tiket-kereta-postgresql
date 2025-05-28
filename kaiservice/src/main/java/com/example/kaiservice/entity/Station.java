@@ -1,24 +1,23 @@
 package com.example.kaiservice.entity;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
-@Entity
-@Table(name = "stations")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Document(collection = "stations")
 public class Station {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(nullable = false, unique = true)
+    @Indexed(unique = true) // Nama stasiun sebaiknya unik
     private String name;
 
-    @Column(nullable = false)
     private String city;
 }

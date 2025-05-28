@@ -1,14 +1,13 @@
-// src/main/java/com/example/kaiservice/repository/RoleRepository.java
 package com.example.kaiservice.repository;
 
 import java.util.Optional;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository; // Opsional, tapi baik untuk konsistensi
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
 
 import com.example.kaiservice.entity.Role;
 
-@Repository // Opsional, tapi baik untuk konsistensi
-public interface RoleRepository extends JpaRepository<Role, Integer> { // Tipe ID Role adalah Integer
-    Optional<Role> findByName(String name); // Method untuk mencari Role berdasarkan namanya
+@Repository
+public interface RoleRepository extends MongoRepository<Role, String> { // Menggunakan String untuk ID
+    Optional<Role> findByName(String name);
 }

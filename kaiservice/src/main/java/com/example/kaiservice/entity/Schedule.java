@@ -1,42 +1,31 @@
 package com.example.kaiservice.entity;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "schedules")
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+// Impor EmbeddedStationInfo jika belum otomatis ditambahkan oleh IDE
+// import com.example.kaiservice.entity.EmbeddedStationInfo; // Seharusnya tidak perlu jika di package yang sama dan public
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Document(collection = "schedules")
 public class Schedule {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "departure_station_id", nullable = false) // INI SUDAH SESUAI PILIHAN 1
-    private Station departureStation;
+    // Menggunakan kelas EmbeddedStationInfo yang sudah public dan terpisah
+    private EmbeddedStationInfo departureStationInfo;
+    private EmbeddedStationInfo arrivalStationInfo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "arrival_station_id", nullable = false) // INI SUDAH SESUAI PILIHAN 1
-    private Station arrivalStation;
-
-    @Column(nullable = false)
     private LocalDateTime departureTime;
-
-    @Column(nullable = false)
     private LocalDateTime arrivalTime;
-
-    @Column(nullable = false)
     private String trainName;
-
-    @Column(nullable = false)
     private Double price;
-
     private Integer availableSeats;
-}   
+}

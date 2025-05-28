@@ -4,9 +4,9 @@ import lombok.Data;
 
 @Data
 public class UserProfileDto {
-    private Long userId; // Mungkin perlu untuk referensi
-    private String username; // Ambil dari User terkait
-    private String email;    // Ambil dari User terkait
+    private String userId; // Diubah dari Long ke String
+    private String username;
+    private String email;
     private String fullName;
     private String phoneNumber;
     private String address;

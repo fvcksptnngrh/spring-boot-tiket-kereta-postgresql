@@ -1,18 +1,18 @@
 package com.example.kaiservice.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import jakarta.validation.constraints.NotBlank; // Import untuk validasi
-import jakarta.validation.constraints.Size;    // Import untuk validasi
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class StationDto {
-    private Long id; // Biarkan null saat create
+    private String id; // Diubah dari Long ke String. Biarkan null saat create jika ID di-generate server.
 
-    @NotBlank(message = "Nama stasiun tidak boleh kosong") // Tidak boleh null dan tidak boleh hanya spasi
+    @NotBlank(message = "Nama stasiun tidak boleh kosong")
     @Size(min = 3, max = 100, message = "Nama stasiun harus antara 3 dan 100 karakter")
     private String name;
 

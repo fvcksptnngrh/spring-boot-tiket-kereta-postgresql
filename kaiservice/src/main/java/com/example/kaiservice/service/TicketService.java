@@ -1,14 +1,8 @@
 package com.example.kaiservice.service;
 
-import com.example.kaiservice.dto.BookingRequest;
-import com.example.kaiservice.dto.ScheduleResponseDto;
-import com.example.kaiservice.dto.TicketDto;
-import com.example.kaiservice.entity.*; // Wildcard untuk entitas, bisa juga spesifik
-import com.example.kaiservice.exception.NotEnoughSeatsException; // IMPORT CUSTOM EXCEPTION
-import com.example.kaiservice.exception.ResourceNotFoundException; // IMPORT CUSTOM EXCEPTION
-import com.example.kaiservice.repository.ScheduleRepository;
-import com.example.kaiservice.repository.TicketRepository;
-import com.example.kaiservice.repository.UserRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +13,19 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.example.kaiservice.dto.BookingRequest;
+import com.example.kaiservice.dto.ScheduleResponseDto;
+import com.example.kaiservice.dto.TicketDto;
+import com.example.kaiservice.entity.EmbeddedScheduleSummary;
+import com.example.kaiservice.entity.Schedule;
+import com.example.kaiservice.entity.Ticket;
+import com.example.kaiservice.entity.TicketStatus;
+import com.example.kaiservice.entity.User;
+import com.example.kaiservice.exception.NotEnoughSeatsException;
+import com.example.kaiservice.exception.ResourceNotFoundException;
+import com.example.kaiservice.repository.ScheduleRepository;
+import com.example.kaiservice.repository.TicketRepository;
+import com.example.kaiservice.repository.UserRepository;
 
 @Service
 public class TicketService {
@@ -41,14 +45,7 @@ public class TicketService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             logger.warn("Attempted to get current user but no authentication found or user is anonymous.");
-            // Sebaiknya dilempar sebagai AuthenticationCredentialsNotFoundException atau sejenisnya,
-            // tapi RuntimeException akan ditangkap oleh GlobalExceptionHandler jika ada handler umumnya.
-            // Atau biarkan AuthEntryPointJwt yang menangani jika SecurityContext kosong.
-            // Untuk kasus ini, jika @PreAuthorize("isAuthenticated()") sudah ada di controller,
-            // seharusnya request tidak sampai sini jika user tidak terotentikasi.
-            // Jika sampai sini, berarti ada masalah di konfigurasi security atau alur.
-            // Kita lempar UsernameNotFoundException agar lebih jelas konteksnya jika username tidak ada.
-             String usernameForError = (authentication != null) ? authentication.getName() : "null";
+            String usernameForError = (authentication != null) ? authentication.getName() : "null";
             throw new UsernameNotFoundException("Authenticated user principal not found or invalid: " + usernameForError);
         }
         String username = authentication.getName();
@@ -60,74 +57,97 @@ public class TicketService {
                 });
     }
 
-    // Method convertStationToDto bisa dihapus jika tidak dipakai di sini
-    // private StationDto convertStationToDto(Station station) { ... }
-
-    private ScheduleResponseDto convertScheduleToDto(Schedule schedule) {
-        if (schedule == null) return null;
-        ScheduleResponseDto dto = new ScheduleResponseDto();
-        dto.setId(schedule.getId());
-        if (schedule.getDepartureStation() != null) {
-            dto.setDepartureStationName(schedule.getDepartureStation().getName());
-            dto.setDepartureStationCity(schedule.getDepartureStation().getCity());
-        }
-        if (schedule.getArrivalStation() != null) {
-            dto.setArrivalStationName(schedule.getArrivalStation().getName());
-            dto.setArrivalStationCity(schedule.getArrivalStation().getCity());
-        }
-        dto.setDepartureTime(schedule.getDepartureTime());
-        dto.setArrivalTime(schedule.getArrivalTime());
-        dto.setTrainName(schedule.getTrainName());
-        dto.setPrice(schedule.getPrice());
-        dto.setAvailableSeats(schedule.getAvailableSeats());
-        return dto;
-    }
-
     private TicketDto convertTicketToDto(Ticket ticket) {
         TicketDto dto = new TicketDto();
         dto.setId(ticket.getId());
-        if (ticket.getUser() != null) {
-            dto.setUserId(ticket.getUser().getId());
+        dto.setUserId(ticket.getUserId());
+
+        if (ticket.getScheduleSummary() != null) {
+            EmbeddedScheduleSummary summary = ticket.getScheduleSummary();
+            ScheduleResponseDto scheduleDto = new ScheduleResponseDto();
+            scheduleDto.setId(summary.getScheduleId());
+            scheduleDto.setTrainName(summary.getTrainName());
+            scheduleDto.setDepartureStationName(summary.getDepartureStationName());
+            scheduleDto.setDepartureStationCity(summary.getDepartureStationCity());
+            scheduleDto.setArrivalStationName(summary.getArrivalStationName());
+            scheduleDto.setArrivalStationCity(summary.getArrivalStationCity());
+            scheduleDto.setDepartureTime(summary.getDepartureTime());
+            scheduleDto.setArrivalTime(summary.getArrivalTime());
+            scheduleDto.setPrice(summary.getPrice()); // Ini adalah harga satuan per tiket dari jadwal
+            // Anda sudah menambahkan availableSeats di EmbeddedScheduleSummary, jadi kita map juga
+            scheduleDto.setAvailableSeats(summary.getAvailableSeats()); 
+            dto.setSchedule(scheduleDto);
         }
-        if (ticket.getSchedule() != null) {
-            dto.setSchedule(convertScheduleToDto(ticket.getSchedule()));
-        }
+
         dto.setBookingTime(ticket.getBookingTime());
         dto.setSeatNumber(ticket.getSeatNumber());
         if (ticket.getStatus() != null) {
             dto.setStatus(ticket.getStatus().name());
         }
+
+        // Petakan field baru
+        dto.setPassengerCount(ticket.getPassengerCount());
+        dto.setTotalPrice(ticket.getTotalPrice());
+
         return dto;
     }
 
     @Transactional
     public TicketDto bookTicket(BookingRequest bookingRequest) {
         User currentUser = getCurrentUser();
-        logger.info("User {} attempting to book ticket for schedule ID: {}", currentUser.getUsername(), bookingRequest.getScheduleId());
+        String scheduleIdToFind = bookingRequest.getScheduleId();
 
-        Schedule schedule = scheduleRepository.findById(bookingRequest.getScheduleId())
+        logger.info("User {} attempting to book ticket for schedule ID: {} with {} passenger(s)",
+                    currentUser.getUsername(), scheduleIdToFind, bookingRequest.getPassengerCount());
+
+        Schedule schedule = scheduleRepository.findById(scheduleIdToFind)
                 .orElseThrow(() -> {
-                    logger.warn("Schedule not found with ID: {}", bookingRequest.getScheduleId());
-                    return new ResourceNotFoundException("Jadwal tidak ditemukan dengan ID: " + bookingRequest.getScheduleId());
+                    logger.warn("Schedule not found with ID: {}", scheduleIdToFind);
+                    return new ResourceNotFoundException("Jadwal tidak ditemukan dengan ID: " + scheduleIdToFind);
                 });
 
-        if (schedule.getAvailableSeats() == null || schedule.getAvailableSeats() <= 0) {
-            logger.warn("No seats available for schedule ID: {}. Available: {}", schedule.getId(), schedule.getAvailableSeats());
-            throw new NotEnoughSeatsException("Kursi untuk jadwal ini sudah habis!"); // Gunakan custom exception
+        if (schedule.getAvailableSeats() == null || schedule.getAvailableSeats() < bookingRequest.getPassengerCount()) {
+            logger.warn("Not enough seats available for schedule ID: {}. Available: {}, Requested: {}",
+                        schedule.getId(), schedule.getAvailableSeats(), bookingRequest.getPassengerCount());
+            throw new NotEnoughSeatsException("Kursi untuk jadwal ini tidak mencukupi jumlah penumpang yang diminta!");
         }
 
         Ticket newTicket = new Ticket();
-        newTicket.setUser(currentUser);
-        newTicket.setSchedule(schedule);
+        newTicket.setUserId(currentUser.getId());
+
+        // Isi EmbeddedScheduleSummary (sudah termasuk city dan availableSeats)
+        EmbeddedScheduleSummary summary = new EmbeddedScheduleSummary();
+        summary.setScheduleId(schedule.getId());
+        summary.setTrainName(schedule.getTrainName());
+        if (schedule.getDepartureStationInfo() != null) {
+            summary.setDepartureStationName(schedule.getDepartureStationInfo().getName());
+            summary.setDepartureStationCity(schedule.getDepartureStationInfo().getCity());
+        }
+        if (schedule.getArrivalStationInfo() != null) {
+            summary.setArrivalStationName(schedule.getArrivalStationInfo().getName());
+            summary.setArrivalStationCity(schedule.getArrivalStationInfo().getCity());
+        }
+        summary.setDepartureTime(schedule.getDepartureTime());
+        summary.setArrivalTime(schedule.getArrivalTime());
+        summary.setPrice(schedule.getPrice()); // Harga satuan
+        summary.setAvailableSeats(schedule.getAvailableSeats()); // Kursi tersedia SEBELUM pemesanan ini
+        newTicket.setScheduleSummary(summary);
+
+        // Set field baru untuk multi-penumpang dan total harga
+        newTicket.setPassengerCount(bookingRequest.getPassengerCount());
+        newTicket.setTotalPrice(schedule.getPrice() * bookingRequest.getPassengerCount()); // HITUNG TOTAL HARGA
+
         newTicket.setBookingTime(LocalDateTime.now());
         newTicket.setStatus(TicketStatus.BOOKED);
-        newTicket.setSeatNumber(bookingRequest.getSeatNumber());
+        newTicket.setSeatNumber(bookingRequest.getSeatNumber()); // Perlu dipikirkan untuk alokasi multi-kursi
 
-        schedule.setAvailableSeats(schedule.getAvailableSeats() - 1);
-
+        // Kurangi kursi yang tersedia di jadwal
+        schedule.setAvailableSeats(schedule.getAvailableSeats() - bookingRequest.getPassengerCount());
         scheduleRepository.save(schedule);
+
         Ticket savedTicket = ticketRepository.save(newTicket);
-        logger.info("Ticket booked successfully with ID: {} for user: {} and schedule: {}", savedTicket.getId(), currentUser.getUsername(), schedule.getId());
+        logger.info("Ticket booked successfully with ID: {} for user: {} and schedule: {}. Passenger(s): {}, Total Price: {}",
+                    savedTicket.getId(), currentUser.getUsername(), schedule.getId(), savedTicket.getPassengerCount(), savedTicket.getTotalPrice());
 
         return convertTicketToDto(savedTicket);
     }
@@ -136,27 +156,25 @@ public class TicketService {
     public List<TicketDto> getTicketsForCurrentUser() {
         User currentUser = getCurrentUser();
         logger.info("Fetching tickets for current user: {}", currentUser.getUsername());
-        List<Ticket> tickets = ticketRepository.findByUser(currentUser);
+        List<Ticket> tickets = ticketRepository.findByUserId(currentUser.getId());
         return tickets.stream()
                       .map(this::convertTicketToDto)
                       .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public TicketDto getTicketByIdForCurrentUser(Long ticketId) { // Mengembalikan DTO langsung atau throw exception
+    public TicketDto getTicketByIdForCurrentUser(String ticketId) {
         User currentUser = getCurrentUser();
         logger.info("Fetching ticket ID: {} for current user: {}", ticketId, currentUser.getUsername());
 
-        // Asumsi findByIdAndUser ada di TicketRepository dan mengembalikan Optional<Ticket>
-        return ticketRepository.findByIdAndUser(ticketId, currentUser)
-                .map(this::convertTicketToDto) // Jika ada, konversi ke DTO
-                .orElseThrow(() -> { // Jika kosong (tidak ditemukan atau bukan milik user)
+        return ticketRepository.findByIdAndUserId(ticketId, currentUser.getId())
+                .map(this::convertTicketToDto)
+                .orElseThrow(() -> {
                     logger.warn("Ticket ID: {} not found or does not belong to user: {}", ticketId, currentUser.getUsername());
                     return new ResourceNotFoundException("Tiket tidak ditemukan atau Anda tidak berhak mengakses tiket ini.");
                 });
     }
 
-    // --- Metode untuk ADMIN ---
     @Transactional(readOnly = true)
     public List<TicketDto> getAllTicketsForAdmin() {
         logger.info("Admin fetching all tickets.");
@@ -167,7 +185,7 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public TicketDto getAnyTicketByIdForAdmin(Long ticketId) { // Mengembalikan DTO langsung atau throw exception
+    public TicketDto getAnyTicketByIdForAdmin(String ticketId) {
         logger.info("Admin fetching ticket by ID: {}", ticketId);
         return ticketRepository.findById(ticketId)
                 .map(this::convertTicketToDto)

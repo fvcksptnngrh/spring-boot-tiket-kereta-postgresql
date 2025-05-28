@@ -1,20 +1,22 @@
 package com.example.kaiservice.service;
 
-import com.example.kaiservice.dto.ScheduleRequestDto;
-import com.example.kaiservice.dto.ScheduleResponseDto;
-import com.example.kaiservice.entity.Schedule;
-import com.example.kaiservice.entity.Station;
-import com.example.kaiservice.exception.ResourceNotFoundException; // IMPORT CUSTOM EXCEPTION
-import com.example.kaiservice.repository.ScheduleRepository;
-import com.example.kaiservice.repository.StationRepository;
-import org.slf4j.Logger;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger; // Pastikan impor ini ada dan benar
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.example.kaiservice.dto.ScheduleRequestDto;
+import com.example.kaiservice.dto.ScheduleResponseDto;
+import com.example.kaiservice.entity.EmbeddedStationInfo;
+import com.example.kaiservice.entity.Schedule;
+import com.example.kaiservice.entity.Station;
+import com.example.kaiservice.exception.ResourceNotFoundException;
+import com.example.kaiservice.repository.ScheduleRepository;
+import com.example.kaiservice.repository.StationRepository;
 
 @Service
 public class ScheduleService {
@@ -30,14 +32,16 @@ public class ScheduleService {
     private ScheduleResponseDto convertToResponseDto(Schedule schedule) {
         ScheduleResponseDto dto = new ScheduleResponseDto();
         dto.setId(schedule.getId());
-        if (schedule.getDepartureStation() != null) {
-            dto.setDepartureStationName(schedule.getDepartureStation().getName());
-            dto.setDepartureStationCity(schedule.getDepartureStation().getCity());
+
+        if (schedule.getDepartureStationInfo() != null) {
+            dto.setDepartureStationName(schedule.getDepartureStationInfo().getName());
+            dto.setDepartureStationCity(schedule.getDepartureStationInfo().getCity());
         }
-        if (schedule.getArrivalStation() != null) {
-            dto.setArrivalStationName(schedule.getArrivalStation().getName());
-            dto.setArrivalStationCity(schedule.getArrivalStation().getCity());
+        if (schedule.getArrivalStationInfo() != null) {
+            dto.setArrivalStationName(schedule.getArrivalStationInfo().getName());
+            dto.setArrivalStationCity(schedule.getArrivalStationInfo().getCity());
         }
+
         dto.setDepartureTime(schedule.getDepartureTime());
         dto.setArrivalTime(schedule.getArrivalTime());
         dto.setTrainName(schedule.getTrainName());
@@ -49,6 +53,9 @@ public class ScheduleService {
     @Transactional
     public ScheduleResponseDto createSchedule(ScheduleRequestDto requestDto) {
         logger.info("Attempting to create new schedule for train: {}", requestDto.getTrainName());
+
+        // Pastikan requestDto.getDepartureStationId() dan getArrivalStationId() mengembalikan String
+        // atau sesuaikan dengan tipe ID di StationRepository
         Station departureStation = stationRepository.findById(requestDto.getDepartureStationId())
                 .orElseThrow(() -> {
                     logger.warn("Departure Station not found with id: {}", requestDto.getDepartureStationId());
@@ -64,15 +71,15 @@ public class ScheduleService {
             logger.warn("Invalid schedule time: Arrival time is before departure time.");
             throw new IllegalArgumentException("Waktu kedatangan harus setelah waktu keberangkatan.");
         }
-        if (requestDto.getDepartureStationId().equals(requestDto.getArrivalStationId())) {
+        if (departureStation.getId().equals(arrivalStation.getId())) {
             logger.warn("Invalid schedule: Departure and arrival stations are the same.");
             throw new IllegalArgumentException("Stasiun keberangkatan dan kedatangan tidak boleh sama.");
         }
 
-
         Schedule schedule = new Schedule();
-        schedule.setDepartureStation(departureStation);
-        schedule.setArrivalStation(arrivalStation);
+        // Membuat instance EmbeddedStationInfo baru
+        schedule.setDepartureStationInfo(new EmbeddedStationInfo(departureStation.getId(), departureStation.getName(), departureStation.getCity()));
+        schedule.setArrivalStationInfo(new EmbeddedStationInfo(arrivalStation.getId(), arrivalStation.getName(), arrivalStation.getCity()));
         schedule.setDepartureTime(requestDto.getDepartureTime());
         schedule.setArrivalTime(requestDto.getArrivalTime());
         schedule.setTrainName(requestDto.getTrainName());
@@ -93,7 +100,7 @@ public class ScheduleService {
     }
 
     @Transactional(readOnly = true)
-    public ScheduleResponseDto getScheduleById(Long id) {
+    public ScheduleResponseDto getScheduleById(String id) {
         logger.info("Fetching schedule with ID: {}", id);
         Schedule schedule = scheduleRepository.findById(id)
                 .orElseThrow(() -> {
@@ -104,7 +111,7 @@ public class ScheduleService {
     }
 
     @Transactional
-    public ScheduleResponseDto updateSchedule(Long id, ScheduleRequestDto requestDto) {
+    public ScheduleResponseDto updateSchedule(String id, ScheduleRequestDto requestDto) {
         logger.info("Attempting to update schedule with ID: {}", id);
         Schedule schedule = scheduleRepository.findById(id)
                 .orElseThrow(() -> {
@@ -127,13 +134,13 @@ public class ScheduleService {
             logger.warn("Invalid schedule time for update: Arrival time is before departure time.");
             throw new IllegalArgumentException("Waktu kedatangan harus setelah waktu keberangkatan.");
         }
-        if (requestDto.getDepartureStationId().equals(requestDto.getArrivalStationId())) {
+        if (departureStation.getId().equals(arrivalStation.getId())) {
             logger.warn("Invalid schedule for update: Departure and arrival stations are the same.");
             throw new IllegalArgumentException("Stasiun keberangkatan dan kedatangan tidak boleh sama.");
         }
 
-        schedule.setDepartureStation(departureStation);
-        schedule.setArrivalStation(arrivalStation);
+        schedule.setDepartureStationInfo(new EmbeddedStationInfo(departureStation.getId(), departureStation.getName(), departureStation.getCity()));
+        schedule.setArrivalStationInfo(new EmbeddedStationInfo(arrivalStation.getId(), arrivalStation.getName(), arrivalStation.getCity()));
         schedule.setDepartureTime(requestDto.getDepartureTime());
         schedule.setArrivalTime(requestDto.getArrivalTime());
         schedule.setTrainName(requestDto.getTrainName());
@@ -146,7 +153,7 @@ public class ScheduleService {
     }
 
     @Transactional
-    public void deleteSchedule(Long id) {
+    public void deleteSchedule(String id) {
         logger.info("Attempting to delete schedule with ID: {}", id);
         if (!scheduleRepository.existsById(id)) {
             logger.warn("Schedule not found for deletion with ID: {}", id);

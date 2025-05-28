@@ -1,19 +1,16 @@
 package com.example.kaiservice.repository;
 
-import com.example.kaiservice.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
-@Repository // Menandakan ini adalah Spring Data repository
-public interface UserRepository extends JpaRepository<User, Long> { // Entity: User, Tipe ID: Long
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
 
-    // Spring Data JPA otomatis membuat query berdasarkan nama method
+import com.example.kaiservice.entity.User;
+
+@Repository
+public interface UserRepository extends MongoRepository<User, String> { // Menggunakan String untuk ID
     Optional<User> findByUsername(String username);
-
-    Optional<User> findByEmail(String email);
-
-    Boolean existsByUsername(String username); // Cek apakah username sudah ada
-
-    Boolean existsByEmail(String email); // Cek apakah email sudah ada
+    Optional<User> findByEmail(String email); //
+    Boolean existsByUsername(String username);
+    Boolean existsByEmail(String email);
 }

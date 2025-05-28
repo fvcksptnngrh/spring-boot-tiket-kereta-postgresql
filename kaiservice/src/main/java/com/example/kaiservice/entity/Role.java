@@ -1,37 +1,25 @@
-// Di package yang sama dengan User.java atau package model lainnya
-package com.example.kaiservice.entity; // Sesuaikan dengan package Anda
+package com.example.kaiservice.entity;
 
-import jakarta.persistence.*; // atau javax.persistence.*
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-@Entity
-@Table(name = "roles") // Nama tabel yang baru dibuat
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Document(collection = "roles")
 public class Role {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Atau Long jika id di tabel roles Anda Long
+    private String id;
 
+    @Indexed(unique = true) // Pastikan nama peran unik
     private String name;
 
-    // Constructor, getter, dan setter
-    public Role() {}
-
     public Role(String name) {
-        this.name = name;
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
         this.name = name;
     }
 }

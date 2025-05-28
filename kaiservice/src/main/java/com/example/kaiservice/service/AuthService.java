@@ -1,27 +1,25 @@
-// src/main/java/com/example/kaiservice/service/AuthService.java
 package com.example.kaiservice.service;
-
-import java.util.HashSet;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager; // Import entity Role
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication; // Import RoleRepository
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.example.kaiservice.dto.AuthResponse;
 import com.example.kaiservice.dto.LoginRequest;
 import com.example.kaiservice.dto.RegisterRequest;
 import com.example.kaiservice.entity.Role;
 import com.example.kaiservice.entity.User;
-import com.example.kaiservice.repository.RoleRepository; // Import Transactional
-import com.example.kaiservice.repository.UserRepository; // Import HashSet
-import com.example.kaiservice.security.JwtUtils;     // Import Set
+import com.example.kaiservice.repository.RoleRepository;
+import com.example.kaiservice.repository.UserRepository;
+import com.example.kaiservice.security.JwtUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // Tetap bisa digunakan
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -30,10 +28,10 @@ public class AuthService {
     AuthenticationManager authenticationManager;
 
     @Autowired
-    UserRepository userRepository;
+    UserRepository userRepository; // Sekarang MongoRepository<User, String>
 
     @Autowired
-    RoleRepository roleRepository; // Inject RoleRepository
+    RoleRepository roleRepository; // Sekarang MongoRepository<Role, String>
 
     @Autowired
     PasswordEncoder encoder;
@@ -41,9 +39,8 @@ public class AuthService {
     @Autowired
     JwtUtils jwtUtils;
 
-    @Transactional // Tambahkan Transactional untuk operasi yang melibatkan beberapa save
+    @Transactional
     public void registerUser(RegisterRequest registerRequest) {
-        // Cek apakah username atau email sudah ada
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
             throw new RuntimeException("Error: Username '" + registerRequest.getUsername() + "' is already taken!");
         }
@@ -51,20 +48,18 @@ public class AuthService {
             throw new RuntimeException("Error: Email '" + registerRequest.getEmail() + "' is already in use!");
         }
 
-        // Buat user baru
         User user = new User();
         user.setUsername(registerRequest.getUsername());
         user.setEmail(registerRequest.getEmail());
-        user.setPassword(encoder.encode(registerRequest.getPassword())); // Hash password!
+        user.setPassword(encoder.encode(registerRequest.getPassword()));
 
-        // Tetapkan role default untuk user baru (misalnya ROLE_USER)
         Set<Role> roles = new HashSet<>();
-        // Pastikan nama "ROLE_USER" sesuai dengan apa yang ada di tabel 'roles' Anda
-        // dan sudah di-insert oleh data.sql (misalnya dengan id=2)
         Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException("Error: Default Role (ROLE_USER) not found in database. Please ensure it is seeded."));
+                .orElseThrow(() -> new RuntimeException("Error: Default Role (ROLE_USER) not found in database."));
         roles.add(userRole);
         user.setRoles(roles);
+        // Jika UserProfile di-embed dan Anda ingin menginisialisasi beberapa field default:
+        // user.setUserProfile(new UserProfile("Default Name", null, null));
 
         userRepository.save(user);
     }
@@ -77,10 +72,10 @@ public class AuthService {
         String jwt = jwtUtils.generateJwtToken(authentication);
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        // Ambil user dari database untuk mendapatkan ID dan informasi lainnya jika perlu
         User userFromDb = userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found after authentication with username: " + userDetails.getUsername()));
 
+        // ID pengguna sekarang String
         return new AuthResponse(jwt, userFromDb.getId(), userFromDb.getUsername());
     }
 }

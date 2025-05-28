@@ -1,21 +1,33 @@
 package com.example.kaiservice.repository;
 
-import com.example.kaiservice.entity.Schedule;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+import com.example.kaiservice.entity.Schedule; // Pastikan impor ini ada
 
 @Repository
-public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
+public interface ScheduleRepository extends MongoRepository<Schedule, String> {
 
-    // Contoh query custom untuk mencari jadwal berdasarkan asal, tujuan, dan tanggal
-    List<Schedule> findByDepartureStationIdAndArrivalStationIdAndDepartureTimeBetween(
-            Long departureStationId,
-            Long arrivalStationId,
+    // Metode yang sudah ada
+    List<Schedule> findByDepartureStationInfo_StationIdAndArrivalStationInfo_StationIdAndDepartureTimeBetween(
+            String departureStationId,
+            String arrivalStationId,
             LocalDateTime startTime,
             LocalDateTime endTime
     );
 
-     List<Schedule> findByDepartureTimeAfter(LocalDateTime time); // Cari jadwal setelah waktu tertentu
+    List<Schedule> findByDepartureTimeAfter(LocalDateTime time);
+
+    List<Schedule> findByTrainName(String trainName); // Metode ini ada di kode saya sebelumnya, pastikan ada jika Anda menggunakannya
+
+    Optional<Schedule> findByDepartureStationInfo_StationIdAndArrivalStationInfo_StationIdAndTrainNameAndDepartureTime(
+            String departureStationId,
+            String arrivalStationId,
+            String trainName,
+            LocalDateTime departureTime
+    );
 }

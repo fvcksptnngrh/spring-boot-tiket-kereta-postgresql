@@ -1,17 +1,22 @@
 package com.example.kaiservice.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.kaiservice.dto.AuthResponse;
 import com.example.kaiservice.dto.LoginRequest;
 import com.example.kaiservice.dto.MessageResponse;
 import com.example.kaiservice.dto.RegisterRequest;
 import com.example.kaiservice.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity; // Import ResponseEntity
-import org.springframework.web.bind.annotation.*; // Import anotasi web
 
-@CrossOrigin(origins = "*", maxAge = 3600) // Izinkan request dari semua origin (sesuaikan di production)
-@RestController // Menandakan ini adalah REST Controller
-@RequestMapping("/api/auth") // Base path untuk controller ini
+@CrossOrigin(origins = "*", maxAge = 3600)
+@RestController
+@RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
@@ -21,9 +26,8 @@ public class AuthController {
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         try {
             AuthResponse authResponse = authService.authenticateUser(loginRequest);
-            return ResponseEntity.ok(authResponse); // Kirim token jika sukses
+            return ResponseEntity.ok(authResponse);
         } catch (Exception e) {
-            // Tangani exception (misal: bad credentials)
             return ResponseEntity.status(401).body(new MessageResponse("Error: Invalid credentials!"));
         }
     }
@@ -34,7 +38,6 @@ public class AuthController {
             authService.registerUser(registerRequest);
             return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
         } catch (RuntimeException e) {
-            // Tangani exception (misal: username/email sudah ada)
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }

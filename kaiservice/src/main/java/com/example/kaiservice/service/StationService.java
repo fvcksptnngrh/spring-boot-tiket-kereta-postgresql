@@ -3,7 +3,7 @@ package com.example.kaiservice.service;
 import com.example.kaiservice.dto.StationDto;
 import com.example.kaiservice.entity.Station;
 import com.example.kaiservice.repository.StationRepository;
-import com.example.kaiservice.exception.ResourceNotFoundException; // IMPORT CUSTOM EXCEPTION
+import com.example.kaiservice.exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,17 +16,18 @@ public class StationService {
     @Autowired
     private StationRepository stationRepository;
 
-    // ... convertToDto dan convertToEntity ...
     private StationDto convertToDto(Station station) {
+        // ID station sekarang String
         return new StationDto(station.getId(), station.getName(), station.getCity());
     }
-    private Station convertToEntity(StationDto stationDto) { // (Untuk create)
+
+    private Station convertToEntity(StationDto stationDto) {
         Station station = new Station();
+        // ID tidak di-set di sini, akan di-generate oleh MongoDB saat save
         station.setName(stationDto.getName());
         station.setCity(stationDto.getCity());
         return station;
     }
-
 
     @Transactional
     public StationDto createStation(StationDto stationDto) {
@@ -43,17 +44,15 @@ public class StationService {
     }
 
     @Transactional(readOnly = true)
-    public StationDto getStationById(Long id) {
+    public StationDto getStationById(String id) {
         Station station = stationRepository.findById(id)
-                // GANTI RUNTIMEEXCEPTION DENGAN RESOURCE NOT FOUND
                 .orElseThrow(() -> new ResourceNotFoundException("Stasiun tidak ditemukan dengan id: " + id));
         return convertToDto(station);
     }
 
     @Transactional
-    public StationDto updateStation(Long id, StationDto stationDto) {
+    public StationDto updateStation(String id, StationDto stationDto) { 
         Station station = stationRepository.findById(id)
-                // GANTI RUNTIMEEXCEPTION DENGAN RESOURCE NOT FOUND
                 .orElseThrow(() -> new ResourceNotFoundException("Stasiun tidak ditemukan dengan id: " + id + " untuk diupdate"));
         station.setName(stationDto.getName());
         station.setCity(stationDto.getCity());
@@ -62,9 +61,8 @@ public class StationService {
     }
 
     @Transactional
-    public void deleteStation(Long id) {
+    public void deleteStation(String id) { 
         if (!stationRepository.existsById(id)) {
-            // GANTI RUNTIMEEXCEPTION DENGAN RESOURCE NOT FOUND
             throw new ResourceNotFoundException("Stasiun tidak ditemukan dengan id: " + id + " untuk dihapus");
         }
         stationRepository.deleteById(id);
